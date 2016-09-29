@@ -5,6 +5,11 @@ import (
 	"io/ioutil"
 	"log"
 	"strings"
+	"time"
+
+	"github.com/hybridgroup/gobot"
+	"github.com/hybridgroup/gobot/platforms/beaglebone"
+	"github.com/hybridgroup/gobot/platforms/gpio"
 )
 
 type directory map[string]string
@@ -15,10 +20,18 @@ func (d directory) contains(s string) bool {
 }
 
 func main() {
+
 	dir := readLocalCache("localcache.txt")
+	beagleboneAdaptor := beaglebone.NewBeagleboneAdaptor("beaglebone")
+	//NewDirectPinDriver returns a pointer - this wasn't immediately obvious to me
+	splate := gpio.NewDirectPinDriver(beagleboneAdaptor, "splate", "P9_12")
+
 	for {
 		input := getKBInput()
-		log.Printf("Admitted? %v", authenticate(input, dir))
+
+		if authenticate(input, dir) {
+			openDoor(*splate)
+		}
 	}
 }
 
@@ -60,4 +73,11 @@ func authenticate(code string, dir directory) bool {
 		log.Println("Refused to admit %s", code)
 		return false
 	}
+}
+
+func openDoor(sp gpio.DirectPinDriver) {
+	sp.DigitalWrite(1)
+	gobot.After(5*time.Second, func() {
+		sp.DigitalWrite(0)
+	})
 }
